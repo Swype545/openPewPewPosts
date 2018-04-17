@@ -32,6 +32,12 @@ def createPostsTable():
 	except:
 		return False
 
+'''
+-------------------------------------------
+Main Call
+-------------------------------------------
+'''
+		
 if __name__ == "__main__":
 	# Create the DB
 	[conn, c] = configDb()
