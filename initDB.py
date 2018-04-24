@@ -18,6 +18,7 @@ def closeDb(conn, c):
 		return True
 	except:
 		return False
+		
 
 '''
 -------------------------------------------
@@ -27,7 +28,8 @@ Create Tables
 		
 def createPostsTable():
 	try:
-		c.execute('''CREATE TABLE posts (user integer, content text, date integer)''')
+		# Index
+		c.execute('''CREATE TABLE posts (id integer primary key, user integer, content text, date integer)''')
 		return True
 	except:
 		return False
