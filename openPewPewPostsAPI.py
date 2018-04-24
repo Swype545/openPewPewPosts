@@ -14,9 +14,12 @@ app = Flask(__name__)
 pathToDb = "C:/Users/13069/Documents/openPewPewPosts/posts.db"
 
 def connectDb():
-	conn = sqlite3.connect(pathToDb)
-	c = conn.cursor()
-	return [conn,c]
+	try:
+		conn = sqlite3.connect(pathToDb)
+		c = conn.cursor()
+		return [conn,c]
+	except:
+		return False
 
 def closeDb(conn, c):
 	try:
@@ -36,81 +39,90 @@ def createPostsTable():
 
 # Create a post in the posts table
 def addPostToDb(userId, content, timestamp):
-	[conn, c] = connectDb()
-	
-	# Specify the column necessary because there is an ID
-	c.execute("INSERT INTO posts(user,content,date) VALUES(?,?,?)",(int(userId),str(content),int(timestamp)))
-	if(closeDb(conn, c)==True):
-		print("Correctly closed the DB")
-	else:
-		print("Error while closing the DB")
-	return True
+	try: 
+		[conn, c] = connectDb()
+		
+		# Specify the column necessary because there is an ID
+		c.execute("INSERT INTO posts(user,content,date) VALUES(?,?,?)",(int(userId),str(content),int(timestamp)))
+		if(closeDb(conn, c)==True):
+			print("Correctly closed the DB")
+		else:
+			print("Error while closing the DB")
+		return True
+	except:
+		return False
 
 # Get all posts from the posts table
 # If a userId is defined, return all posts of this user
 
 def getPostsFromDb(userId=0):
-	[conn, c] = connectDb()
-	postList=[]
-	
-	if(userId == 0): 
-		posts = c.execute("select * from posts")
-	else:
-		posts = c.execute("select * from posts WHERE posts.user IS ?",(userId,))
+	try: 
+		[conn, c] = connectDb()
+		postList=[]
 		
-	
-	jsonResponse = {'payload':[]}
-	
-	for post in posts:
-		print(post)
-		postInfo = {
-			'id':post[0],
-			'userId':post[1],
-			'content':post[2],
-			'timestamp':post[3],
-		}
-		postList.append(postInfo)
-	
-	for element in postList:
-		jsonResponse['payload'].append(element)
-	
-	closeDb(conn,c)
-	return jsonResponse
+		if(userId == 0): 
+			posts = c.execute("select * from posts")
+		else:
+			posts = c.execute("select * from posts WHERE posts.user IS ?",(userId,))
+			
+		
+		jsonResponse = {'payload':[]}
+		
+		for post in posts:
+			print(post)
+			postInfo = {
+				'id':post[0],
+				'userId':post[1],
+				'content':post[2],
+				'timestamp':post[3],
+			}
+			postList.append(postInfo)
+		
+		for element in postList:
+			jsonResponse['payload'].append(element)
+		
+		closeDb(conn,c)
+		return jsonResponse
+	except:
+		return False
 	
 def getPostFromDb(userId=None, postId=None):
-	[conn, c] = connectDb()
-	postList=[]
-	jsonResponse = {'payload':[]}
-	
-	# If both of them are defined, we send an error
-	
-	if(userId is not None and postId is "last"):
-		posts = c.execute("select * from posts WHERE posts.user IS ? ORDER BY date DESC LIMIT 1",(int(userId),))
-	elif(userId is None and postId is not None):
-		posts = c.execute("select * from posts WHERE posts.id IS ?",(int(postId),))
-	elif(userId is None and postId is None):
-		return False	
-	elif(userId is not None and postId is None):
+	try: 
+		[conn, c] = connectDb()
+		postList=[]
+		jsonResponse = {'payload':[]}
+		
+		# If both of them are defined, we send an error
+		
+		if(userId is not None and postId is "last"):
+			posts = c.execute("select * from posts WHERE posts.user IS ? ORDER BY date DESC LIMIT 1",(int(userId),))
+		elif(userId is None and postId is not None):
+			posts = c.execute("select * from posts WHERE posts.id IS ?",(int(postId),))
+		elif(userId is None and postId is None):
+			return False	
+		elif(userId is not None and postId is None):
+			return False
+		else:
+			posts=[]
+		
+		for post in posts:
+			# posts[0] is id, 1 is userId, 2 is content and 3 is timestamp
+			postInfo = {
+				'id': post[0],
+				'userId':post[1],
+				'content':post[2],
+				'timestamp':post[3],
+			}
+			postList.append(postInfo)
+		
+		for element in postList:
+			jsonResponse['payload'].append(element)
+		
+		closeDb(conn,c)
+		
+		return jsonResponse
+	except:
 		return False
-	else:
-		posts=[]
-	
-	for post in posts:
-		# posts[0] is id, 1 is userId, 2 is content and 3 is timestamp
-		postInfo = {
-			'id': post[0],
-			'userId':post[1],
-			'content':post[2],
-			'timestamp':post[3],
-		}
-		postList.append(postInfo)
-	
-	for element in postList:
-		jsonResponse['payload'].append(element)
-	
-	closeDb(conn,c)
-	
-	return jsonResponse
 		
 # ----------------------------------------------------------------
 # GET
@@ -119,36 +131,59 @@ def getPostFromDb(userId=None, postId=None):
 @app.route('/posts',methods=['GET'])
 def getPosts():
 	jsonResponse = getPostsFromDb()
-	return jsonify(jsonResponse),200
+	
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
 	
 @app.route('/posts/<int:postId>',methods=['GET'])
 def getPost(postId):
 	jsonResponse = getPostFromDb(postId=postId)
-	return jsonify(jsonResponse),200
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
 	
 @app.route('/users/<int:userId>/posts',methods=['GET'])
 def getUserPosts(userId):
 	jsonResponse = getPostsFromDb(userId)
-	return jsonify(jsonResponse),200
+	
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
 
 @app.route('/users/<int:userId>/posts/last',methods=['GET'])
 def getlastPost(userId):
 	jsonResponse = getPostFromDb(userId=userId, postId="last")
-	return jsonify(jsonResponse),200
+	
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
 	
 @app.route('/user/posts',methods=['GET'])
 def getMyPosts():
 	# This need to be changed with the TOKEN
 	myId = "13069"
 	jsonResponse = getPostsFromDb(myId)
-	return jsonify(jsonResponse),200
+	
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
 
 @app.route('/user/posts/last',methods=['GET'])
 def getMyLastPost():
 	# This need to be changed with the TOKEN
 	myId = "13069"
 	jsonResponse = getPostFromDb(userId=myId, postId="last")
-	return jsonify(jsonResponse),200
+	
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
 
 # ----------------------------------------------------------------
 # POST
