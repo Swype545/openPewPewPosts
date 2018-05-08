@@ -2,13 +2,44 @@
 from flask import Flask, jsonify, make_response, request
 from flask import request
 from flask_cors import CORS
+from functools import wraps
 
 import sqlite3
 import time
+
+# CAREFUL: we need to install JWT for the token partition
+# DO NOT USE "pip install jwt"
+# Use instead "pip install PyJWT"
+# There is an error if you install the uncorrect package
 import jwt
 
 app = Flask(__name__)
+app.config['SECRET_KEY']='secret'
 CORS(app)
+
+# ----------------------------------------------------------------
+# TOKEN GESTURE
+# ----------------------------------------------------------------	
+def token_required(f):
+	@wraps(f)
+	def decorated(*args,**kwargs):
+		token = None
+
+		if 'x-access-token' in request.headers:
+			token = request.headers['x-access-token']
+
+		if not token:
+			return jsonify({'message':'token is missing'}),401
+		try:
+			data = jwt.decode(token, app.config['SECRET_KEY'])
+			#print(data)
+			userId = data['user']
+		except:
+			return jsonify({'message' : 'Token is invalid'}), 401
+		
+		return f(userId,*args, **kwargs)
+	return decorated
+
 
 # ----------------------------------------------------------------
 # DATABASE
@@ -68,7 +99,7 @@ def getPostsFromDb(userId=0):
 			posts = c.execute("select * from posts WHERE posts.user IS ?",(userId,))
 			
 		
-		jsonResponse = {'payload':[]}
+		jsonResponse = {'posts':[]}
 		
 		for post in posts:
 			print(post)
@@ -81,7 +112,7 @@ def getPostsFromDb(userId=0):
 			postList.append(postInfo)
 		
 		for element in postList:
-			jsonResponse['payload'].append(element)
+			jsonResponse['posts'].append(element)
 		
 		closeDb(conn,c)
 		return jsonResponse
@@ -92,7 +123,7 @@ def getPostFromDb(userId=None, postId=None):
 	try: 
 		[conn, c] = connectDb()
 		postList=[]
-		jsonResponse = {'payload':[]}
+		jsonResponse = {'posts':[]}
 		
 		# If both of them are defined, we send an error
 		
@@ -118,7 +149,7 @@ def getPostFromDb(userId=None, postId=None):
 			postList.append(postInfo)
 		
 		for element in postList:
-			jsonResponse['payload'].append(element)
+			jsonResponse['posts'].append(element)
 		
 		closeDb(conn,c)
 		
@@ -131,7 +162,8 @@ def getPostFromDb(userId=None, postId=None):
 # ----------------------------------------------------------------
 
 @app.route('/posts',methods=['GET'])
-def getPosts():
+@token_required
+def getPosts(userId):
 	jsonResponse = getPostsFromDb()
 	
 	if(jsonResponse == False):
@@ -139,16 +171,44 @@ def getPosts():
 	else:
 		return jsonify(jsonResponse),200
 	
+
 @app.route('/posts/<int:postId>',methods=['GET'])
-def getPost(postId):
+@token_required
+def getPost(userId, postId):
+	print("hello")
+	print(postId)
 	jsonResponse = getPostFromDb(postId=postId)
 	if(jsonResponse == False):
 		return jsonify("{}"),500
 	else:
 		return jsonify(jsonResponse),200
 	
-@app.route('/users/<int:userId>/posts',methods=['GET'])
-def getUserPosts(userId):
+
+@app.route('/users/<int:otherUserId>/posts',methods=['GET'])
+@token_required
+def getUserPosts(otherUserId, userId):
+	jsonResponse = getPostsFromDb(otherUserId)
+	
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
+
+
+@app.route('/users/<int:otherUserId>/posts/last',methods=['GET'])
+@token_required
+def getlastPost(otherUserId, userId):
+	jsonResponse = getPostFromDb(userId=otherUserId, postId="last")
+	
+	if(jsonResponse == False):
+		return jsonify("{}"),500
+	else:
+		return jsonify(jsonResponse),200
+	
+
+@app.route('/user/posts',methods=['GET'])
+@token_required
+def getMyPosts(userId):	
 	jsonResponse = getPostsFromDb(userId)
 	
 	if(jsonResponse == False):
@@ -156,41 +216,11 @@ def getUserPosts(userId):
 	else:
 		return jsonify(jsonResponse),200
 
-@app.route('/users/<int:userId>/posts/last',methods=['GET'])
-def getlastPost(userId):
-	jsonResponse = getPostFromDb(userId=userId, postId="last")
-	
-	if(jsonResponse == False):
-		return jsonify("{}"),500
-	else:
-		return jsonify(jsonResponse),200
-	
-@app.route('/user/posts',methods=['GET'])
-def getMyPosts():
-	# TODO: This need to be changed with the TOKEN
-	# if '' in request.headers:
-	# 	token = request.headers['']
-	# else:
-	# 	return jsonify("{}"),401
-	myId = tokenToId("myToken")
-	
-	jsonResponse = getPostsFromDb(myId)
-	
-	if(jsonResponse == False):
-		return jsonify("{}"),500
-	else:
-		return jsonify(jsonResponse),200
 
 @app.route('/user/posts/last',methods=['GET'])
-def getMyLastPost():
-	# TODO: This need to be changed with the TOKEN
-	# if '' in request.headers:
-	# 	token = request.headers['']
-	# else:
-	# 	return jsonify("{}"),401
-	myId = tokenToId("myToken")
-
-	jsonResponse = getPostFromDb(userId=myId, postId="last")
+@token_required
+def getMyLastPost(userId):
+	jsonResponse = getPostFromDb(userId=userId, postId="last")
 	
 	if(jsonResponse == False):
 		return jsonify("{}"),500
@@ -203,45 +233,29 @@ def getMyLastPost():
 	
 # Creating a new POST
 @app.route('/posts',methods=['POST'])
-def postPost():
-	
-	# We don't expect timestamp, we'll generate it
-	# We don't need the user, it is in the token
-	
-	# TODO: This need to be changed with the TOKEN
-	# if '' in request.headers:
-	# 	token = request.headers['']
-	# else:
-	# 	return jsonify("{}"),401
-	myId = tokenToId("myToken")
-	
+@token_required
+def postPost(userId):
+
 	if (not request.json or
-	not 'content' in request.json['payload']):
+	not 'content' in request.json['posts']):
 		jsonResponse = {
-			'payload': 'Wrong payload',
+			'status': 'Wrong payload',
 		}
 		return jsonify(jsonResponse),400
 	else:
-		check = addPostToDb(int(myId),request.json['payload']['content'],int(time.time()))
+		check = addPostToDb(int(userId),request.json['posts']['content'],int(time.time()))
 		if(check == True):
 			jsonResponse = {
-				'payload': 'Correctly created the post',
+				'status': 'Correctly created the post',
 			}
 			return jsonify(jsonResponse), 200
 		else:
 			jsonResponse = {
-				'payload': 'error while inserting in DB',
+				'status': 'error while inserting in DB',
 			}
 			return jsonify(jsonResponse), 500
 	return 404
 
-# ----------------------------------------------------------------
-# TOKEN GESTURE
-# ----------------------------------------------------------------
-def tokenToId(token):
-	secretKey = "secret"
-	return 13069;
-	
 # Main script
 if __name__ == '__main__':
 	app.run(debug=True, host='127.0.0.1')
