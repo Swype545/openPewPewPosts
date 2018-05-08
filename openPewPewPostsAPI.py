@@ -168,7 +168,10 @@ def getlastPost(userId):
 @app.route('/user/posts',methods=['GET'])
 def getMyPosts():
 	# TODO: This need to be changed with the TOKEN
-	# token = request.headers['']
+	# if '' in request.headers:
+	# 	token = request.headers['']
+	# else:
+	# 	return jsonify("{}"),401
 	myId = tokenToId("myToken")
 	
 	jsonResponse = getPostsFromDb(myId)
@@ -181,7 +184,10 @@ def getMyPosts():
 @app.route('/user/posts/last',methods=['GET'])
 def getMyLastPost():
 	# TODO: This need to be changed with the TOKEN
-	# token = request.headers['']
+	# if '' in request.headers:
+	# 	token = request.headers['']
+	# else:
+	# 	return jsonify("{}"),401
 	myId = tokenToId("myToken")
 
 	jsonResponse = getPostFromDb(userId=myId, postId="last")
@@ -203,7 +209,10 @@ def postPost():
 	# We don't need the user, it is in the token
 	
 	# TODO: This need to be changed with the TOKEN
-	# token = request.headers['']
+	# if '' in request.headers:
+	# 	token = request.headers['']
+	# else:
+	# 	return jsonify("{}"),401
 	myId = tokenToId("myToken")
 	
 	if (not request.json or
