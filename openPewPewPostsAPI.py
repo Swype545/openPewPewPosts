@@ -1,12 +1,14 @@
 #!flask/bin/python
 from flask import Flask, jsonify, make_response, request
 from flask import request
+from flask_cors import CORS
 
 import sqlite3
 import time
 import jwt
 
 app = Flask(__name__)
+CORS(app)
 
 # ----------------------------------------------------------------
 # DATABASE
@@ -165,8 +167,10 @@ def getlastPost(userId):
 	
 @app.route('/user/posts',methods=['GET'])
 def getMyPosts():
-	# This need to be changed with the TOKEN
-	myId = "13069"
+	# TODO: This need to be changed with the TOKEN
+	# token = request.headers['']
+	myId = tokenToId("myToken")
+	
 	jsonResponse = getPostsFromDb(myId)
 	
 	if(jsonResponse == False):
@@ -176,8 +180,10 @@ def getMyPosts():
 
 @app.route('/user/posts/last',methods=['GET'])
 def getMyLastPost():
-	# This need to be changed with the TOKEN
-	myId = "13069"
+	# TODO: This need to be changed with the TOKEN
+	# token = request.headers['']
+	myId = tokenToId("myToken")
+
 	jsonResponse = getPostFromDb(userId=myId, postId="last")
 	
 	if(jsonResponse == False):
@@ -196,8 +202,10 @@ def postPost():
 	# We don't expect timestamp, we'll generate it
 	# We don't need the user, it is in the token
 	
-	# This need to be changed with the TOKEN
-	myId = "13069"
+	# TODO: This need to be changed with the TOKEN
+	# token = request.headers['']
+	myId = tokenToId("myToken")
+	
 	if (not request.json or
 	not 'content' in request.json['payload']):
 		jsonResponse = {
@@ -223,6 +231,7 @@ def postPost():
 # ----------------------------------------------------------------
 def tokenToId(token):
 	secretKey = "secret"
+	return 13069;
 	
 # Main script
 if __name__ == '__main__':
